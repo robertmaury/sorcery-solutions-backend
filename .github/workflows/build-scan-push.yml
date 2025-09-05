@@ -28,7 +28,7 @@ jobs:
       matrix:
         include:
           - dockerfile: ./
-            image: ${{ vars.IMAGE_REGISTRY }}/${{ vars.IMAGE_NAME }}
+            image: ${{ vars.IMAGE_REPO }}
 
     steps:
       - name: Checkout
@@ -65,15 +65,7 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.IMAGE_REGISTRY }}
-
-      - name: Login to Base Image Registry (if needed)
-        if: ${{ vars.BASE_IMAGE_REGISTRY != '' && vars.BASE_IMAGE_REGISTRY != null }}
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ vars.BASE_IMAGE_REGISTRY }}
-          username: ${{ secrets.BASE_IMAGE_REGISTRY_USERNAME }}
-          password: ${{ secrets.BASE_IMAGE_REGISTRY_PASSWORD }}
+          registry: ${{ vars.IMAGE_REPO }}
 
       - name: Build Docker Image
         id: build-image
@@ -89,7 +81,6 @@ jobs:
 
       - name: Scan Container with Wiz
         run: |
-          if [[ ! -z "${{ vars.WIZ_ENV }}" && "${{ vars.WIZ_ENV }}" != "app" ]]; then export WIZ_ENV=${{ vars.WIZ_ENV }}; fi
           curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64
           chmod +x wizcli
           ./wizcli auth
@@ -117,6 +108,26 @@ jobs:
       - name: Tag Container with Wiz
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
-          if [[ ! -z "${{ vars.WIZ_ENV }}" && "${{ vars.WIZ_ENV }}" != "app" ]]; then export WIZ_ENV=${{ vars.WIZ_ENV }}; fi
           ./wizcli docker tag --image "${{ steps.first-tag.outputs.tag }}"
         continue-on-error: true
+
+      - name: 💾 Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: 💾 Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: 📡 Update kubeconfig for EKS
+        run: |
+          aws eks update-kubeconfig \
+            --region ${{ vars.AWS_REGION }} \
+            --name ${{ secrets.EKS_CLUSTER_NAME }}
+
+      - name: 🚀 Deploy Backend via Helm
+        run: |
+          helm upgrade --install backend ./helm/sorcery-solutions-backend \
+            --namespace sorcery \
+            --create-namespace \
+            --set image.repository=${{ vars.IMAGE_REPO }} \
+            --set-json 'env=[{"name":"MONGO_URI","value":"${{ secrets.MONGO_URI}}"},{"name":"MONGO_DB","value":"${{secrets.MONGO_DB}}"}]' \
+            --wait
