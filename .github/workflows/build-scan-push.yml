@@ -30,7 +30,6 @@ jobs:
       matrix:
         include:
           - dockerfile: ./
-            image: ${{ vars.IMAGE_REPO }}
 
     steps:
       - name: Checkout
@@ -43,7 +42,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ matrix.image }}
+          images: ${{ env.IMAGE_REPO }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -137,6 +136,6 @@ jobs:
           helm upgrade --install backend ./helm/sorcery-solutions-backend \
             --namespace sorcery \
             --create-namespace \
-            --set image.repository=${{ vars.IMAGE_REPO }} \
+            --set image.repository=${{ env.IMAGE_REPO }} \
             --set-json 'env=[{"name":"MONGO_URI","value":"${{ secrets.MONGO_URI}}"},{"name":"MONGO_DB","value":"${{secrets.MONGO_DB}}"}]' \
             --wait
