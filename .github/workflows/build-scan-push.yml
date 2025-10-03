@@ -28,7 +28,7 @@ jobs:
       matrix:
         include:
           - dockerfile: ./
-            image: ${{ secrets.IMAGE_REPO }}
+            image: ${{ vars.IMAGE_REPO }}
 
     steps:
       - name: Checkout
@@ -65,7 +65,7 @@ jobs:
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: docker/login-action@v3
         with:
-          registry: ${{ secrets.IMAGE_REPO }}
+          registry: ${{ vars.IMAGE_REPO }}
 
       - name: Build Docker Image
         id: build-image
@@ -128,6 +128,6 @@ jobs:
           helm upgrade --install backend ./helm/sorcery-solutions-backend \
             --namespace sorcery \
             --create-namespace \
-            --set image.repository=${{ secrets.IMAGE_REPO }} \
+            --set image.repository=${{ vars.IMAGE_REPO }} \
             --set-json 'env=[{"name":"MONGO_URI","value":"${{ secrets.MONGO_URI}}"},{"name":"MONGO_DB","value":"${{secrets.MONGO_DB}}"}]' \
             --wait
