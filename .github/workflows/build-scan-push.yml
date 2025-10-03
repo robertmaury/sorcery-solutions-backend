@@ -28,7 +28,7 @@ jobs:
       matrix:
         include:
           - dockerfile: ./
-            image: ${{ vars.IMAGE_REPO }}
+            image: ${{ secrets.IMAGE_REPO }}
 
     steps:
       - name: Checkout
@@ -59,13 +59,13 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE }}
-          aws-region: ${{ vars.AWS_REGION }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Log in to ECR Container Registry
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: docker/login-action@v3
         with:
-          registry: ${{ vars.IMAGE_REPO }}
+          registry: ${{ secrets.IMAGE_REPO }}
 
       - name: Build Docker Image
         id: build-image
@@ -120,7 +120,7 @@ jobs:
       - name: 📡 Update kubeconfig for EKS
         run: |
           aws eks update-kubeconfig \
-            --region ${{ vars.AWS_REGION }} \
+            --region ${{ secrets.AWS_REGION }} \
             --name ${{ secrets.EKS_CLUSTER_NAME }}
 
       - name: 🚀 Deploy Backend via Helm
@@ -128,6 +128,6 @@ jobs:
           helm upgrade --install backend ./helm/sorcery-solutions-backend \
             --namespace sorcery \
             --create-namespace \
-            --set image.repository=${{ vars.IMAGE_REPO }} \
+            --set image.repository=${{ secrets.IMAGE_REPO }} \
             --set-json 'env=[{"name":"MONGO_URI","value":"${{ secrets.MONGO_URI}}"},{"name":"MONGO_DB","value":"${{secrets.MONGO_DB}}"}]' \
             --wait
