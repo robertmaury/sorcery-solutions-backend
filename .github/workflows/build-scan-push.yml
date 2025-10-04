@@ -89,9 +89,16 @@ jobs:
       - name: Scan Container with Wiz
         run: |
           curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64
-          chmod +x wizcli
-          ./wizcli auth
-          ./wizcli docker scan --image "${{ steps.first-tag.outputs.tag }}" --dockerfile "${{ matrix.dockerfile }}Dockerfile"
+            chmod +x wizcli
+            ./wizcli auth
+
+            ./wizcli iac scan --path "${{ matrix.dockerfile }}Dockerfile" \
+              -p "${{ vars.project }}-iac"
+
+            ./wizcli docker scan --image "${{ matrix.image }}:${{ steps.first-tag.outputs.tag }}" \
+              -p "${{ vars.project }}-secrets" \
+              -p "${{ vars.project }}-vulnerabilities" \
+              -p "${{ vars.project }}-senstive-data"
         continue-on-error: true
 
       - name: Push Docker Image
