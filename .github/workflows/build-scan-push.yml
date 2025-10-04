@@ -28,6 +28,7 @@ jobs:
       matrix:
         include:
           - dockerfile: ./
+            image: ${{ startsWith(vars.REPO, vars.REGISTRY) && vars.REPO || format('{0}/{1}', vars.REGISTRY, vars.REPO) }}
 
     steps:
       - name: Checkout
@@ -40,7 +41,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ vars.REGISTRY }}/${{ vars.REPO }}
+          images: ${{ matrix.image }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -71,7 +72,7 @@ jobs:
       #   if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
       #   uses: docker/login-action@v3
       #   with:
-      #     registry: ${{ env.REGISTRY }}
+      #     registry: ${{ vars.REGISTRY }}
 
       - name: Build Docker Image
         id: build-image
@@ -134,6 +135,6 @@ jobs:
           helm upgrade --install backend ./helm/sorcery-solutions-backend \
             --namespace sorcery \
             --create-namespace \
-            --set image.repository=${{ vars.REGISTRY }}/${{ vars.REPO }} \
+            --set image.repository=${{ matrix.image }} \
             --set-json 'env=[{"name":"MONGO_URI","value":"${{ secrets.MONGO_URI}}"},{"name":"MONGO_DB","value":"${{secrets.MONGO_DB}}"}]' \
             --wait
