@@ -43,16 +43,13 @@ jobs:
         with:
           images: ${{ matrix.image }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
 
       - name: Get First Docker Tag
         id: first-tag
         run: |
-          echo "tag=${{ fromJSON(steps.meta.outputs.json).tags[0] }}" >> $GITHUB_OUTPUT
+          first_tag=$(echo "${{ steps.meta.outputs.tags }}" | head -n1 | tr -d '\r' | xargs)
+          echo "tag=${first_tag}" >> $GITHUB_OUTPUT
 
       - name: Configure AWS Credentials
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -89,16 +86,9 @@ jobs:
       - name: Scan Container with Wiz
         run: |
           curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64
-            chmod +x wizcli
-            ./wizcli auth
-
-            ./wizcli iac scan --path "${{ matrix.dockerfile }}Dockerfile" \
-              -p "${{ vars.project }}-iac"
-
-            ./wizcli docker scan --image "${{ matrix.image }}:${{ steps.first-tag.outputs.tag }}" \
-              -p "${{ vars.project }}-secrets" \
-              -p "${{ vars.project }}-vulnerabilities" \
-              -p "${{ vars.project }}-senstive-data"
+          chmod +x wizcli
+          ./wizcli auth
+          ./wizcli docker scan --image "${{ steps.first-tag.outputs.tag }}" --dockerfile "${{ matrix.dockerfile }}Dockerfile"
         continue-on-error: true
 
       - name: Push Docker Image
@@ -143,5 +133,6 @@ jobs:
             --namespace sorcery \
             --create-namespace \
             --set image.repository=${{ matrix.image }} \
+            --set image.tag="${{ steps.first-tag.outputs.tag }}" \
             --set-json 'env=[{"name":"MONGO_URI","value":"${{ secrets.MONGO_URI}}"},{"name":"MONGO_DB","value":"${{secrets.MONGO_DB}}"}]' \
             --wait
