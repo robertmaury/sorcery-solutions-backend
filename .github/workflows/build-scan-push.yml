@@ -48,8 +48,11 @@ jobs:
       - name: Get First Docker Tag
         id: first-tag
         run: |
-          first_tag=$(echo "${{ steps.meta.outputs.tags }}" | head -n1 | tr -d '\r' | xargs)
-          echo "tag=${first_tag}" >> $GITHUB_OUTPUT
+          image_ref=$(echo "${{ steps.meta.outputs.tags }}" | head -n1 | tr -d '\r' | xargs)
+          echo "image_ref=${image_ref}" >> $GITHUB_OUTPUT
+
+          tag="${image_ref##*:}"
+          echo "tag=${tag}" >> $GITHUB_OUTPUT
 
       - name: Configure AWS Credentials
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -88,7 +91,14 @@ jobs:
           curl -Lo wizcli https://wizcli.app.wiz.io/latest/wizcli-linux-amd64
           chmod +x wizcli
           ./wizcli auth
-          ./wizcli docker scan --image "${{ steps.first-tag.outputs.tag }}" --dockerfile "${{ matrix.dockerfile }}Dockerfile"
+
+          ./wizcli iac scan --path "${{ matrix.dockerfile }}Dockerfile" \
+            -p "${{ vars.project }}-iac"
+
+          ./wizcli docker scan --image "${{ matrix.image }}:${{ steps.first-tag.outputs.tag }}" \
+            -p "${{ vars.project }}-secrets" \
+            -p "${{ vars.project }}-vulnerabilities" \
+            -p "${{ vars.project }}-senstive-data"
         continue-on-error: true
 
       - name: Push Docker Image
@@ -107,12 +117,12 @@ jobs:
       - name: Pull Image for Wiz Tagging
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
-          docker pull ${{ steps.first-tag.outputs.tag }}
+          docker pull ${{ steps.first-tag.outputs.image_ref }}
 
       - name: Tag Container with Wiz
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
-          ./wizcli docker tag --image "${{ steps.first-tag.outputs.tag }}"
+          ./wizcli docker tag --image "${{ steps.first-tag.outputs.image_ref }}"
         continue-on-error: true
 
       - name: 💾 Install kubectl
