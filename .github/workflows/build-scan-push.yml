@@ -95,7 +95,7 @@ jobs:
           ./wizcli iac scan --path "${{ matrix.dockerfile }}Dockerfile" \
             -p "${{ vars.project }}-iac"
 
-          ./wizcli docker scan --image "${{ matrix.image }}:${{ steps.first-tag.outputs.tag }}" \
+          ./wizcli docker scan --image "${{ steps.first-tag.outputs.image_ref }}" \
             -p "${{ vars.project }}-secrets" \
             -p "${{ vars.project }}-vulnerabilities" \
             -p "${{ vars.project }}-senstive-data"
